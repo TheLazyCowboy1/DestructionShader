@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>11</LangVersion>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<Reference Include="..\REFERENCES\*.dll" />
+	</ItemGroup>
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<ItemGroup>
+			<BuildFiles Include="$(Outdir)\DestructionShader.*" />
+		</ItemGroup>
+		<Copy SourceFiles="@(BuildFiles)" DestinationFolder="DestructionShader\plugins" />
+		<ItemGroup>
+			<OutputFolder Include="DestructionShader\*" />
+		</ItemGroup>
+		<ItemGroup>
+			<AssetsFolder Include="DestructionShader\AssetBundles\*" />
+		</ItemGroup>
+		<Copy SourceFiles="@(OutputFolder)" DestinationFolder="C:\Program Files (x86)\Steam\steamapps\common\Rain World\RainWorld_Data\StreamingAssets\mods\DestructionShader" />
+		<Copy SourceFiles="@(AssetsFolder)" DestinationFolder="C:\Program Files (x86)\Steam\steamapps\common\Rain World\RainWorld_Data\StreamingAssets\mods\DestructionShader\AssetBundles" />
+		<Copy SourceFiles="@(BuildFiles)" DestinationFolder="C:\Program Files (x86)\Steam\steamapps\common\Rain World\RainWorld_Data\StreamingAssets\mods\DestructionShader\plugins" />
+	</Target>
+
+</Project>
