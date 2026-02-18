@@ -20,7 +20,7 @@ public partial class Plugin : BaseUnityPlugin
 {
     public const string MOD_ID = "LazyCowboy.DestructionShader",
         MOD_NAME = "Destruction Shader",
-        MOD_VERSION = "0.0.1";
+        MOD_VERSION = "0.0.2";
 
 
     public static Plugin Instance;
@@ -178,7 +178,7 @@ public partial class Plugin : BaseUnityPlugin
     public static void Log(object o, int logLevel = 1, [CallerFilePath] string file = "", [CallerMemberName] string name = "", [CallerLineNumber] int line = -1)
     {
         //if (logLevel <= Options.LogLevel)
-            Instance.Logger.LogDebug(logText(o, file, name, line));
+        Instance.Logger.LogDebug(logText(o, file, name, line));
     }
 
     public static void Error(object o, [CallerFilePath] string file = "", [CallerMemberName] string name = "", [CallerLineNumber] int line = -1)

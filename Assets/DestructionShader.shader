@@ -38,7 +38,7 @@ CGPROGRAM
 #pragma fragment frag
 //#pragma debug
 
-#define testNum 8
+#define testNum 10
 //#define testNump1 23
 #define dirCount 8
 #define maxPileHeight 20
@@ -87,7 +87,7 @@ inline int depthOfPixel(float4 col) {
 	//	return (uint)(round(col.r * 255) - 1) % 30;
 	//}
 	//return 30; //sky
-	return (col.r < 0.997f) ? ((uint)(round(col.r * 255) - 1) % 30) : 40; //treat the sky as extra deep
+	return (col.r < 0.997f) ? ((uint)(round(col.r * 255) - 1) % 30) : 40 + (int)TheLazyCowboy1_DestructionStrength/2; //treat the sky as extra deep
 }
 
 float4 highFreqNoise(float2 uv, float2 scale) {
@@ -190,6 +190,11 @@ half4 frag (v2f i) : SV_Target
 		//return addDebris(i, origCol, origDep);
 	}
 
+	/*origCol.r = origDep / 30.0f;
+	origCol.g = 0;
+	origCol.b = 0;
+	return origCol;*/
+
 	//const uint dirCount = 4;
 	float2 dir[dirCount];
 	dir[0] = float2(_MainTex_TexelSize.x, 0); //1,0
@@ -210,22 +215,25 @@ half4 frag (v2f i) : SV_Target
 	float totalWeakness = 0;
 	float directionalWeakness = 0;
 	float surroundingDep = 0;
-	int doubleOrigDep = origDep+origDep;
+	//int doubleOrigDep = origDep+origDep;
+	float totalFac = 0;
 
 	[unroll(dirCount)]
 	for (uint d = 0; d < dirCount; d++) {
 		[unroll(2)]
 		for (int s = -1; s < 2; s = s + 2) {
-			uint notDone = 1;
+			//uint notDone = 1;
 
 			float pixelOffset = 1;
 			float strengthFac = 1;
 			float directionWeakness = 0;
-			int rayDep = origDep;
+			//int rayDep = origDep;
 			
 			[unroll(testNum)]
 			for (int k = 1; k <= testNum; k++) {
-				if (notDone) {
+				totalFac = totalFac + strengthFac;
+
+				/*if (notDone) {
 					float4 col = tex2D(_MainTex, i.uv + s * pixelOffset * dir[d]);
 					int dep = depthOfPixel(col);
 
@@ -238,23 +246,41 @@ half4 frag (v2f i) : SV_Target
 					pixelOffset = pixelOffset * 1.8f;
 					//strengthFac = strengthFac * 0.8f;
 					strengthFac = strengthFac - (1.0f / testNum); //linearly decrease strength
+				}*/
+				float4 col = tex2D(_MainTex, i.uv + s * pixelOffset * dir[d]);
+				int dep = depthOfPixel(col);
+
+				if (dep - origDep > 2+k) { //more than 3-pixel difference = structural weakness, apparently
+					directionWeakness = directionWeakness + strengthFac; //add instead of set
+					//rayDep = 2*dep + (testNum - k); //add a little extra if the search was short
+					surroundingDep = surroundingDep + (dep - origDep) * strengthFac;
+					//notDone = 0; //done searching this direction
 				}
+
+				pixelOffset = pixelOffset * 1.8f;
+				//strengthFac = strengthFac * 0.8f;
+				strengthFac = strengthFac - (1.0f / testNum); //linearly decrease strength
 			}
 
 			totalWeakness = totalWeakness + directionWeakness * (1 - 0.7f * s * dir[d].y / _MainTex_TexelSize.y); //erosion is stronger downwards than upwards
 			directionalWeakness = directionalWeakness + directionWeakness * s * dir[d].y;
-			surroundingDep = surroundingDep + origDep + (rayDep - doubleOrigDep) * 0.5f * directionWeakness; //*0.5f because we multiplied it by 2 earlier
+			//surroundingDep = surroundingDep + origDep + (rayDep - doubleOrigDep) * 0.5f * directionWeakness; //*0.5f because we multiplied it by 2 earlier
 		}
 	}
 
 	float4 noiseVal = tex2D(TheLazyCowboy1_ColoredNoiseTex, i.uv);
-	totalWeakness = saturate(totalWeakness / (dirCount*2.0f) * (noiseVal.b + 0.5f) - noiseVal.g + 0.3f); //randomly shift it with noise
-	//totalWeakness = totalWeakness / (dirCount*2.0f);
+	//totalWeakness = saturate(totalWeakness / (dirCount*2.0f) * (noiseVal.b + 0.5f) - noiseVal.g + 0.3f); //randomly shift it with noise
+	totalWeakness = saturate(totalWeakness / totalFac * (noiseVal.b + 0.5f) - 0.5f*noiseVal.g + 0.2f); //randomly shift it with noise
+	//totalWeakness = totalWeakness / totalFac;
 	//totalWeakness = saturate(totalWeakness / (dirCount*2.0f) * (noiseVal.b - 0.3f) / (1 - 0.3f)); //map noise range 0.3-1 to 0-1
 
-	/*origCol.r = 0;
-	origCol.g = 0;
-	origCol.b = totalWeakness;
+	/*origCol.r = 0;//origDep / 30.0f;
+	origCol.g = surroundingDep-28;//saturate(totalWeakness - 1) * 100;
+	origCol.b = surroundingDep/30;
+	return origCol;*/
+	/*origCol.r = (surroundingDep/totalFac + origDep) / 30;
+	origCol.g = directionalWeakness * 100;
+	origCol.b = -directionalWeakness * 100;
 	return origCol;*/
 
 	//origCol.a = totalWeakness; //encode "weakness" in the alpha channel, since it's free
@@ -268,14 +294,15 @@ half4 frag (v2f i) : SV_Target
 
 		int depLoss = round(TheLazyCowboy1_DestructionStrength * totalWeakness);
 		int newDep = origDep + depLoss;
-		surroundingDep = (surroundingDep / 16) + ((totalWeakness+1) * 0.03f * TheLazyCowboy1_DestructionStrength); //allow it to go slightly past surroundingDep
+		//surroundingDep = origDep + (surroundingDep / totalFac) + ((totalWeakness+1) * 0.03f * TheLazyCowboy1_DestructionStrength); //allow it to go slightly past surroundingDep
+		surroundingDep = origDep + (surroundingDep / totalFac) + 0.1f*noiseVal.r*TheLazyCowboy1_DestructionStrength;// + ((totalWeakness+1) * 0.03f * TheLazyCowboy1_DestructionStrength); //allow it to go slightly past surroundingDep
 		if (newDep > surroundingDep) { //don't allow more depLoss than surroundingDep
 			newDep = surroundingDep;
 			depLoss = newDep - origDep;
 		}
 		//if (depLoss > 10 || newDep > 29) { //the idea was that if something is truly so destroyed, just make it sky. But I think it looks better without that
 		//if (newDep > 29) {
-		if (newDep > 29 || (surroundingDep >= 30 && depLoss > 6)) { //if we're allowed to be sky and there's a lot of depLoss, make it sky
+		if (newDep > 29 || (surroundingDep >= 28 && depLoss > 6)) { //if we're allowed to be sky and there's a lot of depLoss, make it sky
 			return float4(1, 1, 1, 1); //DON'T add debris, because it's so destroyed that there can't be debris...?
 			//return addDebris(i, float4(1, 1, 1, 1), newDep);
 		}
