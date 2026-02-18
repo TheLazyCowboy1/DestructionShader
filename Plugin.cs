@@ -89,11 +89,17 @@ public partial class Plugin : BaseUnityPlugin
         if (DestructionEffect == null) Error("DestructionShader.shader is null!");
         DestructionMat = new(DestructionEffect);
 
+        ColoredNoiseTex = assets.LoadAsset<Texture2D>("ColoredFractalNoise.png");
+        if (ColoredNoiseTex == null) Plugin.Error("ColoredFractalNoise.png is null!");
+        Shader.SetGlobalTexture("TheLazyCowboy1_ColoredNoiseTex", ColoredNoiseTex);
+
         Log($"Initialized DestructionShader config and assets.", 0);
     }
 
     private static Shader DestructionEffect;
     public static Material DestructionMat;
+
+    public static Texture2D ColoredNoiseTex;
 
 
     #endregion
